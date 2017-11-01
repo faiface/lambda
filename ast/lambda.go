@@ -40,8 +40,8 @@ type CompileError struct {
 	Msg  string
 }
 
-func (ce *CompileError) Error() string {
-	return ce.Msg
+func (err *CompileError) Error() string {
+	return err.Msg
 }
 
 type Node interface {
