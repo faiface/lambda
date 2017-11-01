@@ -7,6 +7,13 @@ type Ctx struct {
 	Next *Ctx
 }
 
+func (ctx *Ctx) Cons(expr Expr) *Ctx {
+	return &Ctx{
+		Expr: expr,
+		Next: ctx,
+	}
+}
+
 type Dir uint8
 
 const (
@@ -83,10 +90,10 @@ func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
 			panic("distribute: context too short")
 		}
 		if dir&DirLeft != 0 {
-			left = cons(ctx.Expr, left)
+			left = left.Cons(ctx.Expr)
 		}
 		if dir&DirRight != 0 {
-			right = cons(ctx.Expr, right)
+			right = right.Cons(ctx.Expr)
 		}
 		ctx = ctx.Next
 	}
@@ -151,17 +158,10 @@ func (ap *Appl) Reduce() (reduced Expr) {
 	}
 	ctx := abst.Ctx
 	if abst.Used {
-		ctx = cons(ap.Right, ctx)
+		ctx = ctx.Cons(ap.Right)
 	}
 	if ApplicationCallback != nil {
 		ApplicationCallback(ap.Left, ap.Right)
 	}
 	return abst.Body.Fill(ctx)
-}
-
-func cons(expr Expr, ctx *Ctx) *Ctx {
-	return &Ctx{
-		Expr: expr,
-		Next: ctx,
-	}
 }
