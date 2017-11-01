@@ -97,10 +97,11 @@ func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
 }
 
 type FreeRef struct {
-	Ref *FreeExpr
+	Ref  *FreeExpr
+	Meta interface{}
 }
 
-func (fr *FreeRef) MetaInfo() interface{} { return (*fr.Ref).MetaInfo() }
+func (fr *FreeRef) MetaInfo() interface{} { return fr.Meta }
 func (fr *FreeRef) Fill(ctx *Ctx) Expr    { return (*fr.Ref).Fill(ctx) }
 
 type Abst struct {

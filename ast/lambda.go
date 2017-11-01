@@ -164,6 +164,7 @@ func (g *Global) Compile(globals map[string]*machine.FreeExpr, free []string) (m
 		}
 	}
 	return &machine.FreeRef{
-		Ref: global,
+		Ref:  global,
+		Meta: g.Meta,
 	}, nil
 }
