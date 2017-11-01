@@ -6,6 +6,15 @@ import (
 	"github.com/faiface/lambda/machine"
 )
 
+type CompileError struct {
+	Node Node
+	Msg  string
+}
+
+func (err *CompileError) Error() string {
+	return err.Msg
+}
+
 func CompileSingle(node Node) (machine.Expr, error) {
 	free, err := node.CompileFree(nil, nil)
 	if err != nil {
@@ -41,15 +50,6 @@ func CompileAll(globals map[string]Node) (map[string]machine.Expr, error) {
 	}
 
 	return compiledMap, nil
-}
-
-type CompileError struct {
-	Node Node
-	Msg  string
-}
-
-func (err *CompileError) Error() string {
-	return err.Msg
 }
 
 type Node interface {
