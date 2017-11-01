@@ -6,6 +6,14 @@ import (
 	"github.com/faiface/lambda/machine"
 )
 
+func CompileSingle(node Node) (machine.Expr, error) {
+	free, err := node.CompileFree(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	return free.Fill(nil), nil
+}
+
 func CompileAll(globals map[string]Node) (map[string]machine.Expr, error) {
 	var globalNames []string
 	for name := range globals {
@@ -20,7 +28,7 @@ func CompileAll(globals map[string]Node) (map[string]machine.Expr, error) {
 	}
 
 	for i, name := range globalNames {
-		compiledFree, err := globals[name].Compile(compiledPtrs, nil)
+		compiledFree, err := globals[name].CompileFree(compiledPtrs, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +55,7 @@ func (err *CompileError) Error() string {
 type Node interface {
 	MetaInfo() interface{}
 	HasFree(name string) bool
-	Compile(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error)
+	CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error)
 }
 
 type Var struct {
@@ -58,7 +66,7 @@ type Var struct {
 func (v *Var) MetaInfo() interface{}    { return v.Meta }
 func (v *Var) HasFree(name string) bool { return name == v.Name }
 
-func (v *Var) Compile(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
+func (v *Var) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
 	if len(free) != 1 || free[0] != v.Name {
 		return nil, &CompileError{
 			Node: v,
@@ -81,9 +89,9 @@ func (a *Abst) HasFree(name string) bool {
 	return name != a.Bound && a.Body.HasFree(name)
 }
 
-func (a *Abst) Compile(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
+func (a *Abst) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
 	if !a.Body.HasFree(a.Bound) {
-		body, err := a.Body.Compile(globals, free)
+		body, err := a.Body.CompileFree(globals, free)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +103,7 @@ func (a *Abst) Compile(globals map[string]*machine.Expr, free []string) (machine
 	}
 
 	freeWithBound := append([]string{a.Bound}, free...)
-	body, err := a.Body.Compile(globals, freeWithBound)
+	body, err := a.Body.CompileFree(globals, freeWithBound)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +124,7 @@ func (ap *Appl) HasFree(name string) bool {
 	return ap.Left.HasFree(name) || ap.Right.HasFree(name)
 }
 
-func (ap *Appl) Compile(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
+func (ap *Appl) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
 	dirs := make([]machine.Dir, len(free))
 	lfree, rfree := []string(nil), []string(nil)
 	for i, name := range free {
@@ -130,11 +138,11 @@ func (ap *Appl) Compile(globals map[string]*machine.Expr, free []string) (machin
 		}
 	}
 
-	left, err := ap.Left.Compile(globals, lfree)
+	left, err := ap.Left.CompileFree(globals, lfree)
 	if err != nil {
 		return nil, err
 	}
-	right, err := ap.Right.Compile(globals, rfree)
+	right, err := ap.Right.CompileFree(globals, rfree)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +163,7 @@ type Global struct {
 func (g *Global) MetaInfo() interface{}    { return g.Meta }
 func (g *Global) HasFree(name string) bool { return false }
 
-func (g *Global) Compile(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
+func (g *Global) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
 	global, ok := globals[g.Name]
 	if !ok {
 		return nil, &CompileError{
