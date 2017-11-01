@@ -97,12 +97,17 @@ func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
 }
 
 type FreeRef struct {
-	Ref  *FreeExpr
+	Ref  *Expr
 	Meta interface{}
 }
 
 func (fr *FreeRef) MetaInfo() interface{} { return fr.Meta }
-func (fr *FreeRef) Fill(ctx *Ctx) Expr    { return (*fr.Ref).Fill(ctx) }
+func (fr *FreeRef) Fill(ctx *Ctx) Expr {
+	if ctx != nil {
+		panic("free ref: context not empty")
+	}
+	return *fr.Ref
+}
 
 type Abst struct {
 	Ctx  *Ctx
