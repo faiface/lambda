@@ -113,7 +113,10 @@ func (fr *FreeRef) Fill(ctx *Ctx) Expr {
 	if ctx != nil {
 		panic("free ref: context not empty")
 	}
-	return *fr.Ref
+	return &Ref{
+		Ref:  fr.Ref,
+		Meta: fr.Meta,
+	}
 }
 
 type Abst struct {
@@ -165,3 +168,12 @@ func (ap *Appl) Reduce() (reduced Expr) {
 	}
 	return abst.Body.Fill(ctx)
 }
+
+type Ref struct {
+	Ref  *Expr
+	Meta interface{}
+}
+
+func (r *Ref) MetaInfo() interface{} { return r.Meta }
+func (r *Ref) IsNormal() bool        { return false }
+func (r *Ref) Reduce() Expr          { return *r.Ref }
