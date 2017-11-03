@@ -1,6 +1,9 @@
 package machine
 
-var ApplicationCallback func(left, right Expr)
+var (
+	OneStepReduce       = false
+	ApplicationCallback func(left, right Expr)
+)
 
 type Ctx struct {
 	Expr Expr
@@ -142,17 +145,21 @@ func (a *Abst) Reduce() Expr          { return a }
 
 type Appl struct {
 	Left, Right Expr
-	Memo        Expr
 	Meta        interface{}
 }
 
 func (ap *Appl) MetaInfo() interface{} { return ap.Meta }
 func (ap *Appl) IsNormal() bool        { return false }
 
-func (ap *Appl) Reduce() (reduced Expr) {
-	if ap.Memo != nil {
-		ap.Memo = ap.Memo.Reduce()
-		return ap.Memo
+func (ap *Appl) Reduce() Expr {
+	if ap.Right == nil {
+		ap.Left = ap.Left.Reduce()
+		return ap.Left
+	}
+	if !OneStepReduce {
+		for !ap.Left.IsNormal() {
+			ap.Left = ap.Left.Reduce()
+		}
 	}
 	if !ap.Left.IsNormal() {
 		ap.Left = ap.Left.Reduce()
@@ -162,16 +169,14 @@ func (ap *Appl) Reduce() (reduced Expr) {
 	if !ok {
 		panic("reduce appl: left side not abst")
 	}
+	if ApplicationCallback != nil {
+		ApplicationCallback(ap.Left, ap.Right)
+	}
 	ctx := abst.Ctx
 	if abst.Used {
 		ctx = ctx.Cons(ap.Right)
 	}
-	if ApplicationCallback != nil {
-		ApplicationCallback(ap.Left, ap.Right)
-	}
-	reduced = abst.Body.Fill(ctx)
-	ap.Memo = reduced
-	ap.Left = nil
+	ap.Left = abst.Body.Fill(ctx)
 	ap.Right = nil
-	return reduced
+	return ap.Left
 }
