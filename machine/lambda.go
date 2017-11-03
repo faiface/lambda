@@ -155,14 +155,8 @@ func (ap *Appl) Reduce() (reduced Expr) {
 		return ap.Memo
 	}
 	if !ap.Left.IsNormal() {
-		reduced = &Appl{
-			Left:  ap.Left.Reduce(),
-			Right: ap.Right,
-		}
-		ap.Memo = reduced
-		ap.Left = nil
-		ap.Right = nil
-		return reduced
+		ap.Left = ap.Left.Reduce()
+		return ap
 	}
 	abst, ok := ap.Left.(*Abst)
 	if !ok {
