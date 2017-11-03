@@ -138,6 +138,11 @@ func (ap *Appl) CompileFree(globals map[string]*machine.Expr, free []string) (ma
 		}
 	}
 
+	// free variables distribution during application reverses order!
+	// see machine implementation
+	reverse(lfree)
+	reverse(rfree)
+
 	left, err := ap.Left.CompileFree(globals, lfree)
 	if err != nil {
 		return nil, err
@@ -153,6 +158,12 @@ func (ap *Appl) CompileFree(globals map[string]*machine.Expr, free []string) (ma
 		Right: right,
 		Meta:  ap.Meta,
 	}, nil
+}
+
+func reverse(free []string) {
+	for i, j := 0, len(free)-1; i < j; i, j = i+1, j-1 {
+		free[i], free[j] = free[j], free[i]
+	}
 }
 
 type Global struct {
