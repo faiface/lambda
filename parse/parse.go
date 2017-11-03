@@ -11,36 +11,19 @@ import (
 	"github.com/faiface/lambda/ast"
 )
 
+type MetaInfo struct {
+	*FileInfo
+	Name string
+}
+
 type FileInfo struct {
 	Filename     string
 	Line, Column int
 }
 
-func (fi *FileInfo) Add(filename string, line, column int) *FileInfo {
-	if fi == nil {
-		return &FileInfo{
-			Filename: filename,
-			Line:     line,
-			Column:   column,
-		}
-	}
-	return &FileInfo{
-		Filename: filename,
-		Line:     fi.Line + line - 1,
-		Column:   fi.Column + column - 1,
-	}
-}
-
 type Error struct {
 	*FileInfo
 	Msg string
-}
-
-func (err *Error) Add(filename string, line, column int) *Error {
-	return &Error{
-		FileInfo: err.FileInfo.Add(filename, line, column),
-		Msg:      err.Msg,
-	}
 }
 
 func (err *Error) Error() string {
@@ -50,24 +33,24 @@ func (err *Error) Error() string {
 	return fmt.Sprintf("%s:%d:%d: %s", err.Filename, err.Line, err.Column, err.Msg)
 }
 
-func Single(r io.Reader) (ast.Node, error) {
+func Single(filename string, r io.Reader) (ast.Node, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	toks := Tokenize(data)
+	toks := Tokenize(filename, data)
 	if err != nil {
 		return nil, err
 	}
 	return SingleFromTokens(toks)
 }
 
-func Definitions(r io.Reader) (map[string]ast.Node, error) {
+func Definitions(filename string, r io.Reader) (map[string]ast.Node, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
-	toks := Tokenize(data)
+	toks := Tokenize(filename, data)
 	if err != nil {
 		return nil, err
 	}
@@ -132,28 +115,49 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 			if err != nil {
 				return nil, err
 			}
+			if body == nil {
+				return nil, &Error{
+					FileInfo: tok.FileInfo,
+					Msg:      "no body in abstraction",
+				}
+			}
 			return wrapAppl(node, &ast.Abst{
 				Bound: toks[i+1].Token,
 				Body:  body,
-				Meta:  tok.FileInfo,
+				Meta: &MetaInfo{
+					FileInfo: tok.FileInfo,
+					Name:     toks[i+1].Token,
+				},
 			}), nil
 		case ";":
-			var err error
-			right, err = SingleFromTokens(toks[i+1:])
+			afterColon, err := SingleFromTokens(toks[i+1:])
 			if err != nil {
 				return nil, err
 			}
+			if afterColon == nil {
+				return nil, &Error{
+					FileInfo: tok.FileInfo,
+					Msg:      "no expression after ';'",
+				}
+			}
+			return wrapAppl(node, afterColon), nil
 		default:
 			identifier := tok.Token
 			if identifier == strings.Title(identifier) {
 				right = &ast.Global{
 					Name: identifier,
-					Meta: tok.FileInfo,
+					Meta: &MetaInfo{
+						FileInfo: tok.FileInfo,
+						Name:     identifier,
+					},
 				}
 			} else {
 				right = &ast.Var{
 					Name: identifier,
-					Meta: tok.FileInfo,
+					Meta: &MetaInfo{
+						FileInfo: tok.FileInfo,
+						Name:     identifier,
+					},
 				}
 			}
 		}
@@ -240,7 +244,7 @@ func definition(toks []Token) (name string, node ast.Node, ends int, err error) 
 	return name, node, ends, nil
 }
 
-func Tokenize(data []byte) []Token {
+func Tokenize(filename string, data []byte) []Token {
 	var (
 		tokens []Token
 		token  []rune
@@ -255,8 +259,9 @@ func Tokenize(data []byte) []Token {
 		}
 		tokens = append(tokens, Token{
 			FileInfo: &FileInfo{
-				Line:   line,
-				Column: column,
+				Filename: filename,
+				Line:     line,
+				Column:   column,
 			},
 			Token: string(token),
 		})
@@ -296,11 +301,4 @@ nextToken:
 type Token struct {
 	*FileInfo
 	Token string
-}
-
-func (tok Token) Add(filename string, line, column int) Token {
-	return Token{
-		FileInfo: tok.FileInfo.Add(filename, line, column),
-		Token:    tok.Token,
-	}
 }
