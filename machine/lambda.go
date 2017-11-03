@@ -49,6 +49,22 @@ func (fv *FreeVar) Fill(ctx *Ctx) Expr {
 	return ctx.Expr
 }
 
+type FreeRef struct {
+	Ref  *Expr
+	Meta interface{}
+}
+
+func (fr *FreeRef) MetaInfo() interface{} { return fr.Meta }
+func (fr *FreeRef) Fill(ctx *Ctx) Expr {
+	if ctx != nil {
+		panic("free ref: context not empty")
+	}
+	return &Ref{
+		Ref:  fr.Ref,
+		Meta: fr.Meta,
+	}
+}
+
 type FreeAbst struct {
 	Used bool
 	Body FreeExpr
@@ -85,6 +101,7 @@ func (fap *FreeAppl) Fill(ctx *Ctx) Expr {
 }
 
 func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
+	// distribute reverses stuff!
 	for _, dir := range dirs {
 		if ctx == nil {
 			panic("distribute: context too short")
@@ -103,21 +120,14 @@ func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
 	return left, right
 }
 
-type FreeRef struct {
+type Ref struct {
 	Ref  *Expr
 	Meta interface{}
 }
 
-func (fr *FreeRef) MetaInfo() interface{} { return fr.Meta }
-func (fr *FreeRef) Fill(ctx *Ctx) Expr {
-	if ctx != nil {
-		panic("free ref: context not empty")
-	}
-	return &Ref{
-		Ref:  fr.Ref,
-		Meta: fr.Meta,
-	}
-}
+func (r *Ref) MetaInfo() interface{} { return r.Meta }
+func (r *Ref) IsNormal() bool        { return false }
+func (r *Ref) Reduce() Expr          { return *r.Ref }
 
 type Abst struct {
 	Ctx  *Ctx
@@ -144,16 +154,15 @@ func (ap *Appl) Reduce() (reduced Expr) {
 		ap.Memo = ap.Memo.Reduce()
 		return ap.Memo
 	}
-	defer func() {
-		ap.Memo = reduced
-		ap.Left = nil
-		ap.Right = nil
-	}()
 	if !ap.Left.IsNormal() {
-		return &Appl{
+		reduced = &Appl{
 			Left:  ap.Left.Reduce(),
 			Right: ap.Right,
 		}
+		ap.Memo = reduced
+		ap.Left = nil
+		ap.Right = nil
+		return reduced
 	}
 	abst, ok := ap.Left.(*Abst)
 	if !ok {
@@ -166,14 +175,9 @@ func (ap *Appl) Reduce() (reduced Expr) {
 	if ApplicationCallback != nil {
 		ApplicationCallback(ap.Left, ap.Right)
 	}
-	return abst.Body.Fill(ctx)
+	reduced = abst.Body.Fill(ctx)
+	ap.Memo = reduced
+	ap.Left = nil
+	ap.Right = nil
+	return reduced
 }
-
-type Ref struct {
-	Ref  *Expr
-	Meta interface{}
-}
-
-func (r *Ref) MetaInfo() interface{} { return r.Meta }
-func (r *Ref) IsNormal() bool        { return false }
-func (r *Ref) Reduce() Expr          { return *r.Ref }
