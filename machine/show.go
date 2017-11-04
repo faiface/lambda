@@ -1,5 +1,7 @@
 package machine
 
+import "fmt"
+
 func ShowExpr(repr func(interface{}) string, expr Expr) string {
 	switch expr := expr.(type) {
 	case *Ref:
@@ -7,9 +9,12 @@ func ShowExpr(repr func(interface{}) string, expr Expr) string {
 	case *Abst:
 		return "(λ" + repr(expr.MetaInfo()) + " " + ShowFreeExpr(repr, expr.Body) + ")"
 	case *Appl:
+		if expr.Right == nil {
+			return ShowExpr(repr, expr.Left)
+		}
 		return "(" + ShowExpr(repr, expr.Left) + " " + ShowExpr(repr, expr.Right) + ")"
 	default:
-		return "(???)"
+		panic(fmt.Sprintf("%T", expr))
 	}
 }
 
@@ -24,6 +29,6 @@ func ShowFreeExpr(repr func(interface{}) string, free FreeExpr) string {
 	case *FreeAppl:
 		return "(" + ShowFreeExpr(repr, free.Left) + " " + ShowFreeExpr(repr, free.Right) + ")"
 	default:
-		return "(???)"
+		panic(fmt.Sprintf("free %T", free))
 	}
 }
