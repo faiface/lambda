@@ -36,6 +36,10 @@ type FreeExpr interface {
 	Fill(ctx *Ctx) Expr
 }
 
+type Applier interface {
+	Apply(Expr) Expr
+}
+
 type FreeVar struct {
 	Meta interface{}
 }
@@ -142,6 +146,13 @@ type Abst struct {
 func (a *Abst) MetaInfo() interface{} { return a.Meta }
 func (a *Abst) IsNormal() bool        { return true }
 func (a *Abst) Reduce() Expr          { return a }
+func (a *Abst) Apply(expr Expr) Expr {
+	ctx := a.Ctx
+	if a.Used {
+		ctx = ctx.Cons(expr)
+	}
+	return a.Body.Fill(ctx)
+}
 
 type Appl struct {
 	Left, Right Expr
@@ -165,18 +176,14 @@ func (ap *Appl) Reduce() Expr {
 		ap.Left = ap.Left.Reduce()
 		return ap
 	}
-	abst, ok := ap.Left.(*Abst)
+	applier, ok := ap.Left.(Applier)
 	if !ok {
 		panic("reduce appl: left side not abst")
 	}
 	if ApplicationCallback != nil {
 		ApplicationCallback(ap.Left, ap.Right)
 	}
-	ctx := abst.Ctx
-	if abst.Used {
-		ctx = ctx.Cons(ap.Right)
-	}
-	ap.Left = abst.Body.Fill(ctx)
+	ap.Left = applier.Apply(ap.Right)
 	ap.Right = nil
 	return ap.Left
 }
