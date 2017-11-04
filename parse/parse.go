@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -58,6 +57,10 @@ func Definitions(filename string, r io.Reader) (map[string]ast.Node, error) {
 }
 
 func SingleFromTokens(toks []Token) (ast.Node, error) {
+	return singleFromTokensWithBounds(nil, toks)
+}
+
+func singleFromTokensWithBounds(bounds []string, toks []Token) (ast.Node, error) {
 	var node ast.Node
 
 	for i := 0; i < len(toks); i++ {
@@ -74,7 +77,7 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 				}
 			}
 			var err error
-			right, err = SingleFromTokens(toks[i+1 : i+1+match])
+			right, err = singleFromTokensWithBounds(bounds, toks[i+1:i+1+match])
 			if err != nil {
 				return nil, err
 			}
@@ -98,12 +101,6 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 				}
 			}
 			bound := toks[i+1].Token
-			if bound == strings.Title(bound) {
-				return nil, &Error{
-					FileInfo: tok.FileInfo,
-					Msg:      fmt.Sprintf("invalid bound name '%s'", bound),
-				}
-			}
 			switch bound {
 			case "(", ")", "\\", "λ", ";":
 				return nil, &Error{
@@ -111,7 +108,7 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 					Msg:      fmt.Sprintf("invalid bound name '%s'", bound),
 				}
 			}
-			body, err := SingleFromTokens(toks[i+2:])
+			body, err := singleFromTokensWithBounds(append(bounds, bound), toks[i+2:])
 			if err != nil {
 				return nil, err
 			}
@@ -130,7 +127,7 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 				},
 			}), nil
 		case ";":
-			afterColon, err := SingleFromTokens(toks[i+1:])
+			afterColon, err := singleFromTokensWithBounds(bounds, toks[i+1:])
 			if err != nil {
 				return nil, err
 			}
@@ -143,8 +140,8 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 			return wrapAppl(node, afterColon), nil
 		default:
 			identifier := tok.Token
-			if identifier == strings.Title(identifier) {
-				right = &ast.Global{
+			if nameIn(identifier, bounds) {
+				right = &ast.Var{
 					Name: identifier,
 					Meta: &MetaInfo{
 						FileInfo: tok.FileInfo,
@@ -152,7 +149,7 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 					},
 				}
 			} else {
-				right = &ast.Var{
+				right = &ast.Global{
 					Name: identifier,
 					Meta: &MetaInfo{
 						FileInfo: tok.FileInfo,
@@ -166,6 +163,15 @@ func SingleFromTokens(toks []Token) (ast.Node, error) {
 	}
 
 	return node, nil
+}
+
+func nameIn(name string, names []string) bool {
+	for _, other := range names {
+		if name == other {
+			return true
+		}
+	}
+	return false
 }
 
 func matchingParen(toks []Token) int {
@@ -209,6 +215,12 @@ func DefinitionsFromTokens(toks []Token) (map[string]ast.Node, error) {
 		if err != nil {
 			return nil, err
 		}
+		if defs[name] != nil {
+			return nil, &Error{
+				FileInfo: toks[0].FileInfo,
+				Msg:      fmt.Sprintf("'%s' already defined", name),
+			}
+		}
 		defs[name] = node
 		toks = toks[ends:]
 	}
@@ -222,7 +234,7 @@ func definition(toks []Token) (name string, node ast.Node, ends int, err error) 
 		}
 	}
 	name = toks[0].Token
-	if name != strings.Title(name) || name == "=" {
+	if name == "=" {
 		return "", nil, 0, &Error{
 			FileInfo: toks[0].FileInfo,
 			Msg:      fmt.Sprintf("invalid global name '%s'", name),

@@ -8,12 +8,9 @@ import (
 	"github.com/faiface/lambda/ast"
 	"github.com/faiface/lambda/machine"
 	"github.com/faiface/lambda/parse"
-	"github.com/pkg/profile"
 )
 
 func main() {
-	defer profile.Start().Stop()
-
 	eval := flag.String("eval", "", "evaluate a global")
 	verbose := flag.Bool("v", false, "print all reduction steps")
 	flag.Parse()
@@ -37,7 +34,7 @@ func main() {
 		for name, node := range nodes {
 			if globalNodes[name] != nil {
 				fi := node.MetaInfo().(*parse.MetaInfo).FileInfo
-				msg := fmt.Sprintf("'%s' already defined", name)
+				msg := fmt.Sprintf("'%s' already defined in another file", name)
 				exitWithError(fi, msg)
 			}
 			globalNodes[name] = node
