@@ -58,6 +58,17 @@ type Node interface {
 	CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error)
 }
 
+type Const struct {
+	Value machine.FreeExpr
+	Meta  interface{}
+}
+
+func (c *Const) MetaInfo() interface{}    { return c.Meta }
+func (c *Const) HasFree(name string) bool { return false }
+func (c *Const) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
+	return c.Value, nil
+}
+
 type Var struct {
 	Name string
 	Meta interface{}
