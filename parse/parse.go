@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/big"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/faiface/lambda/ast"
+	"github.com/faiface/lambda/machine"
 )
 
 type MetaInfo struct {
@@ -139,23 +141,35 @@ func singleFromTokensWithBounds(bounds []string, toks []Token) (ast.Node, error)
 			}
 			return wrapAppl(node, afterColon), nil
 		default:
-			identifier := tok.Token
-			if nameIn(identifier, bounds) {
+			literal := tok.Token
+			if intVal, ok := big.NewInt(0).SetString(literal, 10); ok {
+				right = &ast.Const{
+					Value: machine.Int{
+						Value: intVal,
+					},
+					Meta: &MetaInfo{
+						FileInfo: tok.FileInfo,
+						Name:     literal,
+					},
+				}
+				break
+			}
+			if nameIn(literal, bounds) {
 				right = &ast.Var{
-					Name: identifier,
+					Name: literal,
 					Meta: &MetaInfo{
 						FileInfo: tok.FileInfo,
-						Name:     identifier,
+						Name:     literal,
 					},
 				}
-			} else {
-				right = &ast.Global{
-					Name: identifier,
-					Meta: &MetaInfo{
-						FileInfo: tok.FileInfo,
-						Name:     identifier,
-					},
-				}
+				break
+			}
+			right = &ast.Global{
+				Name: literal,
+				Meta: &MetaInfo{
+					FileInfo: tok.FileInfo,
+					Name:     literal,
+				},
 			}
 		}
 
