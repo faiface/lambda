@@ -78,7 +78,7 @@ func (v *Var) MetaInfo() interface{}    { return v.Meta }
 func (v *Var) HasFree(name string) bool { return name == v.Name }
 
 func (v *Var) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
-	if len(free) != 1 || free[0] != v.Name {
+	if len(free) == 0 || free[0] != v.Name {
 		return nil, &CompileError{
 			Node: v,
 			Msg:  fmt.Sprintf("'%s' not defined", v.Name),
@@ -136,23 +136,23 @@ func (ap *Appl) HasFree(name string) bool {
 }
 
 func (ap *Appl) CompileFree(globals map[string]*machine.Expr, free []string) (machine.FreeExpr, error) {
-	dirs := make([]machine.Dir, len(free))
-	lfree, rfree := []string(nil), []string(nil)
-	for i, name := range free {
+	ldrop := 0
+	for _, name := range free {
 		if ap.Left.HasFree(name) {
-			dirs[i] |= machine.DirLeft
-			lfree = append(lfree, name)
+			break
 		}
-		if ap.Right.HasFree(name) {
-			dirs[i] |= machine.DirRight
-			rfree = append(rfree, name)
-		}
+		ldrop++
 	}
 
-	// free variables distribution during application reverses order!
-	// see machine implementation
-	reverse(lfree)
-	reverse(rfree)
+	rdrop := 0
+	for _, name := range free {
+		if ap.Right.HasFree(name) {
+			break
+		}
+		rdrop++
+	}
+
+	lfree, rfree := free[ldrop:], free[rdrop:]
 
 	left, err := ap.Left.CompileFree(globals, lfree)
 	if err != nil {
@@ -164,7 +164,8 @@ func (ap *Appl) CompileFree(globals map[string]*machine.Expr, free []string) (ma
 	}
 
 	return &machine.FreeAppl{
-		Dirs:  dirs,
+		Ldrop: ldrop,
+		Rdrop: rdrop,
 		Left:  left,
 		Right: right,
 		Meta:  ap.Meta,

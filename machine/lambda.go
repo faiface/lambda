@@ -17,6 +17,17 @@ func (ctx *Ctx) Cons(expr Expr) *Ctx {
 	}
 }
 
+func (ctx *Ctx) Drop(n int) *Ctx {
+	for n > 0 && ctx != nil {
+		n--
+		ctx = ctx.Next
+	}
+	if n == 0 {
+		return ctx
+	}
+	panic("context drop: context too short")
+}
+
 type Dir uint8
 
 const (
@@ -49,9 +60,6 @@ func (fv *FreeVar) MetaInfo() interface{} { return fv.Meta }
 func (fv *FreeVar) Fill(ctx *Ctx) Expr {
 	if ctx == nil {
 		panic("free var: no context values")
-	}
-	if ctx.Next != nil {
-		panic("free var: context has more than one value")
 	}
 	return ctx.Expr
 }
@@ -90,41 +98,21 @@ func (fa *FreeAbst) Fill(ctx *Ctx) Expr {
 }
 
 type FreeAppl struct {
-	Dirs        []Dir
-	Left, Right FreeExpr
-	Meta        interface{}
+	Ldrop, Rdrop int
+	Left, Right  FreeExpr
+	Meta         interface{}
 }
 
 func (fap *FreeAppl) MetaInfo() interface{} { return fap.Meta }
 
 func (fap *FreeAppl) Fill(ctx *Ctx) Expr {
-	lctx, rctx := distribute(fap.Dirs, ctx)
+	lctx, rctx := ctx.Drop(fap.Ldrop), ctx.Drop(fap.Rdrop)
 	left, right := fap.Left.Fill(lctx), fap.Right.Fill(rctx)
 	return &Appl{
 		Left:  left,
 		Right: right,
 		Meta:  fap.Meta,
 	}
-}
-
-func distribute(dirs []Dir, ctx *Ctx) (left, right *Ctx) {
-	// distribute reverses stuff!
-	for _, dir := range dirs {
-		if ctx == nil {
-			panic("distribute: context too short")
-		}
-		if dir&DirLeft != 0 {
-			left = left.Cons(ctx.Expr)
-		}
-		if dir&DirRight != 0 {
-			right = right.Cons(ctx.Expr)
-		}
-		ctx = ctx.Next
-	}
-	if ctx != nil {
-		panic("distribute: context too long")
-	}
-	return left, right
 }
 
 type Ref struct {
