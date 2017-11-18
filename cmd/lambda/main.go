@@ -15,7 +15,19 @@ func main() {
 	verbose := flag.Bool("v", false, "print all reduction steps")
 	flag.Parse()
 
-	globalNodes := make(map[string]ast.Node)
+	globalNodes := map[string]ast.Node{
+		"+":  &ast.Const{Value: &machine.IntBinOp{Type: machine.IntAdd}},
+		"-":  &ast.Const{Value: &machine.IntBinOp{Type: machine.IntSub}},
+		"*":  &ast.Const{Value: &machine.IntBinOp{Type: machine.IntMul}},
+		"/":  &ast.Const{Value: &machine.IntBinOp{Type: machine.IntDiv}},
+		"%":  &ast.Const{Value: &machine.IntBinOp{Type: machine.IntMod}},
+		"==": &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntEq}},
+		"!=": &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntNeq}},
+		"<":  &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntLess}},
+		">":  &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntMore}},
+		"<=": &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntLessEq}},
+		">=": &ast.Const{Value: &machine.IntCmpOp{Type: machine.IntMoreEq}},
+	}
 
 	for _, path := range flag.Args() {
 		file, err := os.Open(path)
